@@ -1,6 +1,8 @@
 #include <cstdio>
 #include <sstream>
 #include <stdexcept>
+#include <vector>
+
 #include "Mesh.hpp"
 
 static std::string to_string(cudaError_t error) {
@@ -43,7 +45,7 @@ __global__ void meshUpdateKernel(float* mesh_in, float* mesh_out, size_t pitch, 
 	}
 }
 
-bool cuda_heat_compute(int blockDimX, int blockDimY, int meshSize, int steps) {
+std::vector<std::vector<float>> cuda_heat_compute(int blockDimX, int blockDimY, int meshSize, int steps) {
 	meshSize += 2; // add buffer, see MESH_SIZE_EXTENDED
 
 	size_t pitch;
@@ -57,7 +59,7 @@ bool cuda_heat_compute(int blockDimX, int blockDimY, int meshSize, int steps) {
 	}
 	catch (CudaError& err) {
 		std::cout << err.what() << std::endl;
-		return false;
+		return {};
 	}
 
 	try {
@@ -83,7 +85,17 @@ bool cuda_heat_compute(int blockDimX, int blockDimY, int meshSize, int steps) {
 		std::cout << err.what() << std::endl;
 	}
 
-	auto valid = validateResults(temperature, pitch);
+	std::vector<std::vector<float>> result;
+	for (int y = 1; y < meshSize - 1; ++y) {
+		result.emplace_back();
+		for (int x = 1; x < meshSize - 1; ++x) {
+			result.back().emplace_back(*getElem(temperature, pitch, x, y));
+		}
+	}
+
+	if (!validateResults(temperature, pitch)) {
+		return {};
+	}
 
 	delete[] temperature;
 	try {
@@ -98,5 +110,5 @@ bool cuda_heat_compute(int blockDimX, int blockDimY, int meshSize, int steps) {
 	// tracing tools such as Nsight and Visual Profiler to show complete traces.
 	checkCudaErrors(cudaDeviceReset());
 
-	return valid;
+	return result;
 }
