@@ -13,9 +13,6 @@
 
 extern size_t STEPS;
 extern size_t MESH_SIZE;
-extern size_t MESH_SIZE_EXTENDED;
-extern int BLOCK_DIM_X;
-extern int BLOCK_DIM_Y;
 
 class SimpleTimer {
 public:
@@ -80,9 +77,6 @@ __host__ __device__ inline T* getElem(T* BaseAddress, size_t pitch, unsigned Row
 	return reinterpret_cast<T*>(reinterpret_cast<char*>(BaseAddress) + Row * pitch) + Column;
 }
 
-float** allocMesh();
-void freeMesh(float** mesh);
 float* allocMeshLinear(size_t& pitch, size_t size);
-void validateResults(float** input);
 bool validateResults(float* input, size_t pitch);
 void setValidateResults(bool value);

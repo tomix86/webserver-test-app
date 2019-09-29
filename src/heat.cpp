@@ -4,12 +4,8 @@ void initialize_heat_compute() {
 	//TODO: parameterize
 	setValidateResults(false);
 	STEPS = 1;
-	//MESH_SIZE = 10000;
 	MESH_SIZE = 100;
-	MESH_SIZE_EXTENDED = MESH_SIZE + 2;
 	std::cout << "Single Allocation size will be: " << sizeof(float) * MESH_SIZE * MESH_SIZE / (1024 * 1024) << "MiB" << std::endl;
-	BLOCK_DIM_X = 32;
-	BLOCK_DIM_Y = 32;
 }
 
 void basic_heat_compute() {

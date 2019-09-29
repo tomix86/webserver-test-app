@@ -7,7 +7,7 @@
 * [CUDA Toolkit](https://developer.nvidia.com/cuda-downloads)
 * (Windows) [vcpkg](https://github.com/Microsoft/vcpkg)
 
-## Libraries version used to compile and run test builds:
+## Libraries version used to compile and run test builds
 * C++ REST SDK - 2.10.14-1
 * CUDA Toolkit - 10.1
 * OpenVC - 4.1.1
