@@ -1,4 +1,5 @@
 #include "Mesh.hpp"
+
 #include <cmath>
 //externs
 size_t STEPS;
@@ -26,16 +27,14 @@ float* allocMeshLinear(size_t& pitch, size_t size) {
 			for (int j = 0; j < size; ++j) {
 				if (i == 0 || i == size - 1 || j == 0 || j == size - 1) {
 					*getElem(output, pitch, i, j) = Mesh::ENVIRONMENT_TEMP;
-				}
-				else {
+				} else {
 					*getElem(output, pitch, i, j) = Mesh::INITIAL_TEMP;
 				}
 			}
 		}
 
 		return output;
-	}
-	catch (std::exception ex) {
+	} catch (std::exception ex) {
 		std::cout << ex.what() << std::endl;
 		exit(-1);
 	}
@@ -49,7 +48,7 @@ bool validateResults(float* input, size_t pitch) {
 				const auto value = *getElem(input, pitch, i + 1, j + 1);
 				if (fabs(Mesh::temperature[i][j] - value) > threshold) {
 					std::cout << "Results are different for optimized version!\n"
-						<< "Mismatch for [" << i << "][" << j << "]: " << Mesh::temperature[i][j] << " vs " << value << std::endl;
+							  << "Mismatch for [" << i << "][" << j << "]: " << Mesh::temperature[i][j] << " vs " << value << std::endl;
 					return false;
 				}
 			}

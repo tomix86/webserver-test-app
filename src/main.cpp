@@ -1,10 +1,11 @@
-#include "TerminationHandler.hpp"
-#include "listener.hpp"
-#include "ironbow_palette.hpp"
 #include <boost/algorithm/string.hpp>
 #include <opencv2/imgcodecs.hpp>
-#include <tuple>
 #include <thread>
+#include <tuple>
+
+#include "TerminationHandler.hpp"
+#include "ironbow_palette.hpp"
+#include "listener.hpp"
 
 using namespace std::chrono_literals;
 
@@ -19,9 +20,7 @@ std::tuple<int, int, int, int> parseParams(const utility::string_t& queryString)
 		ucout << U("Param: ") << param << U("\n");
 	}
 
-	if (params.size() != 4) {
-		throw std::invalid_argument{ "Invalid number of request paramers" };
-	}
+	if (params.size() != 4) { throw std::invalid_argument{ "Invalid number of request paramers" }; }
 
 	return { std::stoi(params[0]), std::stoi(params[1]), std::stoi(params[2]), std::stoi(params[3]) };
 }
@@ -42,8 +41,7 @@ auto encodeImage(const std::vector<std::vector<float>>& grid) {
 	return encodedImage;
 }
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
 	registerTerminationHandler();
 
 	initialize_heat_compute();
@@ -53,9 +51,9 @@ int main(int argc, char* argv[])
 	listener.addListener(L"test", [](auto req) -> web::http::http_response {
 		const auto queryString{ req.request_uri().query() };
 		ucout << U("Request received: ") << queryString << std::endl;
-		ucout << U("Remote address: ") << req.remote_address()<< std::endl;
+		ucout << U("Remote address: ") << req.remote_address() << std::endl;
 		ucout << U("Headers: ") << std::endl;
-		for (const auto&[header, content] : req.headers()) {
+		for (const auto& [header, content] : req.headers()) {
 			ucout << U("   ") << header << U(" = ") << content << std::endl;
 		}
 
@@ -72,12 +70,10 @@ int main(int argc, char* argv[])
 			response.set_body(encodeImage(result));
 			response.headers().set_content_type(U("image/png"));
 			return response;
-		}
-		catch (const std::invalid_argument& err) {
+		} catch (const std::invalid_argument& err) {
 			std::cerr << err.what() << '\n';
 			return web::http::status_codes::BadRequest;
-		}
-		catch (const std::runtime_error& err) {
+		} catch (const std::runtime_error& err) {
 			std::cerr << err.what() << '\n';
 			return web::http::status_codes::InternalError;
 		}

@@ -1,14 +1,13 @@
 #pragma once
-#include <string>
-#include <functional>
-
 #include <cpprest/http_listener.h>
+#include <functional>
+#include <string>
 
 class RequestListener {
 public:
 	RequestListener(utility::string_t baseURI);
 
-	void addListener(utility::string_t resource, std::function< web::http::http_response(web::http::http_request)> handler);
+	void addListener(utility::string_t resource, std::function<web::http::http_response(web::http::http_request)> handler);
 
 	void start();
 	void stop();

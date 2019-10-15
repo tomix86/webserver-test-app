@@ -1,28 +1,24 @@
 #include "listener.hpp"
+
 #include <iostream>
 
 using namespace std::string_literals;
 
-RequestListener::RequestListener(utility::string_t baseURI) :
-	listenerBaseURI{ baseURI } {
-}
+RequestListener::RequestListener(utility::string_t baseURI) : listenerBaseURI{ baseURI } {}
 
 auto methodNameToString(web::http::method method) {
 	if (method == web::http::methods::GET) {
 		return U("GET");
-	}
-	else if (method == web::http::methods::PUT) {
+	} else if (method == web::http::methods::PUT) {
 		return U("PUT");
-	}
-	else if (method == web::http::methods::DEL) {
+	} else if (method == web::http::methods::DEL) {
 		return U("DELETE");
-	}
-	else {
+	} else {
 		return U("Unknown");
 	}
 }
 
-void RequestListener::addListener(utility::string_t resource, std::function< web::http::http_response(web::http::http_request)> handler) {
+void RequestListener::addListener(utility::string_t resource, std::function<web::http::http_response(web::http::http_request)> handler) {
 	const auto method = web::http::methods::GET;
 
 	listeners.emplace_back(listenerBaseURI + resource).support(method, [handler](web::http::http_request request) {
@@ -41,10 +37,7 @@ void RequestListener::start() {
 
 		try {
 			listener.open().wait();
-		}
-		catch (const std::exception& ex) {
-			std::cerr << "RequestListener::start: " << ex.what() << '\n';
-		}
+		} catch (const std::exception& ex) { std::cerr << "RequestListener::start: " << ex.what() << '\n'; }
 	}
 
 	std::cout << "All listeners successfully started\n";

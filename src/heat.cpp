@@ -15,8 +15,7 @@ void basic_heat_compute() {
 	try {
 		m.resize(MESH_SIZE);
 		nodes = Mesh::temperature;
-	}
-	catch (std::exception ex) {
+	} catch (std::exception ex) {
 		std::cout << ex.what() << std::endl;
 		exit(-1);
 	}
@@ -35,7 +34,7 @@ void basic_heat_compute() {
 
 			const float k = 1.f; // thermal conductivity [W/m*K]
 			const float d_x = 1.f; // delta x [m]
-			float q = 0.f; // heat flux [W/m^3] 
+			float q = 0.f; // heat flux [W/m^3]
 			float newTemperature = (t_l + t_r + t_b + t_t + q * d_x * d_x / k) / 4;
 
 			nodes[y][x] = newTemperature;
