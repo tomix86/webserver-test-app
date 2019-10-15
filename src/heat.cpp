@@ -1,4 +1,7 @@
+#include <iostream>
+
 #include "Mesh.hpp"
+#include "SimpleTimer.hpp"
 
 void initialize_heat_compute() {
 	//TODO: parameterize

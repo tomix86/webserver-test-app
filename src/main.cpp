@@ -3,6 +3,7 @@
 #include <thread>
 #include <tuple>
 
+#include "SimpleTimer.hpp"
 #include "TerminationHandler.hpp"
 #include "ironbow_palette.hpp"
 #include "listener.hpp"
@@ -26,6 +27,7 @@ std::tuple<int, int, int, int> parseParams(const utility::string_t& queryString)
 }
 
 auto encodeImage(const std::vector<std::vector<float>>& grid) {
+	SimpleTimer t("Image encoding");
 	cv::Mat image(static_cast<int>(grid.front().size()), static_cast<int>(grid.size()), CV_8UC3);
 	for (int y = 0; y < image.rows; ++y) {
 		for (int x = 0; x < image.cols; ++x) {
@@ -58,6 +60,7 @@ int main(int argc, char* argv[]) {
 		}
 
 		try {
+			SimpleTimer t("Request handler");
 			const auto [blockX, blockY, meshSize, steps]{ parseParams(queryString) };
 			std::cout << "Computing result...\n";
 			const auto result{ cuda_heat_compute(blockX, blockY, meshSize, steps) };

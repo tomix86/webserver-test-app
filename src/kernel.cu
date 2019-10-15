@@ -1,9 +1,12 @@
 #include <cstdio>
+#include <iomanip>
+#include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <vector>
 
 #include "Mesh.hpp"
+#include "SimpleTimer.hpp"
 
 static std::string to_string(cudaError_t error) {
 	char buf[256];
@@ -51,6 +54,9 @@ std::vector<std::vector<float>> cuda_heat_compute(int blockDimX, int blockDimY, 
 	size_t d_pitch;
 	float *d_temperature_in, *d_temperature_out;
 
+	std::cout << "GPU global memory allocation size: " << std::setprecision(2) << std::fixed
+			  << (2.f * meshSize * meshSize * sizeof(float) / 1'000'000) << "MB\n";
+
 	try {
 		checkCudaErrors(cudaMallocPitch(&d_temperature_in, &d_pitch, meshSize * sizeof(float), meshSize));
 		checkCudaErrors(cudaMallocPitch(&d_temperature_out, &d_pitch, meshSize * sizeof(float), meshSize));
@@ -60,7 +66,7 @@ std::vector<std::vector<float>> cuda_heat_compute(int blockDimX, int blockDimY, 
 	}
 
 	try {
-		SimpleTimer t("CUDA implementation");
+		SimpleTimer t("CUDA computations");
 		dim3 blockSize(blockDimX, blockDimY);
 		unsigned computedGridDimX = (meshSize + blockSize.x - 1) / blockSize.x;
 		unsigned computedGridDimY = (meshSize + blockSize.y - 1) / blockSize.y;
@@ -83,6 +89,7 @@ std::vector<std::vector<float>> cuda_heat_compute(int blockDimX, int blockDimY, 
 			cudaMemcpy2D(temperature, pitch, d_temperature_in, d_pitch, meshSize * sizeof(float), meshSize, cudaMemcpyDeviceToHost));
 	} catch (CudaError& err) { std::cout << err.what() << std::endl; }
 
+	SimpleTimer t("Computation results processing");
 	std::vector<std::vector<float>> result;
 	for (int y = 1; y < meshSize - 1; ++y) {
 		result.emplace_back();

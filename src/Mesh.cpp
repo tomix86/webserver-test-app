@@ -1,6 +1,8 @@
 #include "Mesh.hpp"
 
 #include <cmath>
+#include <iostream>
+
 //externs
 size_t STEPS;
 size_t MESH_SIZE;
