@@ -32,7 +32,7 @@ public:
 		timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(clock::now() - begin).count();
 #endif
 
-		std::cout << "Execution of \"" << name << "\" took " << timeDiff << "ms" << std::endl;
+		std::cout << "Execution of \"" << name << "\" took " << timeDiff << "ms\n";
 		//	std::cout << timeDiff << " ";
 	}
 

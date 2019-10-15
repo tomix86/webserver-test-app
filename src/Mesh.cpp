@@ -37,7 +37,7 @@ float* allocMeshLinear(size_t& pitch, size_t size) {
 
 		return output;
 	} catch (std::exception ex) {
-		std::cout << ex.what() << std::endl;
+		std::cout << ex.what() << '\n';
 		exit(-1);
 	}
 }
@@ -50,7 +50,7 @@ bool validateResults(float* input, size_t pitch) {
 				const auto value = *getElem(input, pitch, i + 1, j + 1);
 				if (fabs(Mesh::temperature[i][j] - value) > threshold) {
 					std::cout << "Results are different for optimized version!\n"
-							  << "Mismatch for [" << i << "][" << j << "]: " << Mesh::temperature[i][j] << " vs " << value << std::endl;
+							  << "Mismatch for [" << i << "][" << j << "]: " << Mesh::temperature[i][j] << " vs " << value << '\n';
 					return false;
 				}
 			}

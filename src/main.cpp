@@ -1,4 +1,5 @@
 #include <boost/algorithm/string.hpp>
+#include <mutex>
 #include <opencv2/imgcodecs.hpp>
 #include <thread>
 #include <tuple>
@@ -43,6 +44,16 @@ auto encodeImage(const std::vector<std::vector<float>>& grid) {
 	return encodedImage;
 }
 
+void printRequestMetadata(const web::http::http_request& req) {
+	static int count;
+	ucout << U("Request #") << ++count << U(" received: ") << req.request_uri().query() << U("\n");
+	ucout << U("Remote address: ") << req.remote_address() << U("\n");
+	ucout << U("Headers: ") << U("\n");
+	for (const auto& [header, content] : req.headers()) {
+		ucout << U("   ") << header << U(" = ") << content << U("\n");
+	}
+}
+
 int main(int argc, char* argv[]) {
 	registerTerminationHandler();
 
@@ -51,17 +62,14 @@ int main(int argc, char* argv[]) {
 
 	RequestListener listener{ L"http://127.0.0.1:40000/" };
 	listener.addListener(L"test", [](auto req) -> web::http::http_response {
-		const auto queryString{ req.request_uri().query() };
-		ucout << U("Request received: ") << queryString << std::endl;
-		ucout << U("Remote address: ") << req.remote_address() << std::endl;
-		ucout << U("Headers: ") << std::endl;
-		for (const auto& [header, content] : req.headers()) {
-			ucout << U("   ") << header << U(" = ") << content << std::endl;
-		}
+		static std::mutex mutex;
+		std::lock_guard l{ mutex };
+
+		printRequestMetadata(req);
 
 		try {
 			SimpleTimer t("Request handler");
-			const auto [blockX, blockY, meshSize, steps]{ parseParams(queryString) };
+			const auto [blockX, blockY, meshSize, steps]{ parseParams(req.request_uri().query()) };
 			std::cout << "Computing result...\n";
 			const auto result{ cuda_heat_compute(blockX, blockY, meshSize, steps) };
 			if (result.empty()) {

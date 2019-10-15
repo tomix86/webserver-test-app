@@ -8,7 +8,7 @@ void initialize_heat_compute() {
 	setValidateResults(false);
 	STEPS = 1;
 	MESH_SIZE = 100;
-	std::cout << "Single Allocation size will be: " << sizeof(float) * MESH_SIZE * MESH_SIZE / (1024 * 1024) << "MiB" << std::endl;
+	std::cout << "Single Allocation size will be: " << sizeof(float) * MESH_SIZE * MESH_SIZE / (1024 * 1024) << "MiB\n";
 }
 
 void basic_heat_compute() {
@@ -19,7 +19,7 @@ void basic_heat_compute() {
 		m.resize(MESH_SIZE);
 		nodes = Mesh::temperature;
 	} catch (std::exception ex) {
-		std::cout << ex.what() << std::endl;
+		std::cout << ex.what() << '\n';
 		exit(-1);
 	}
 

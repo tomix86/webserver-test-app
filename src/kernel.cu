@@ -61,7 +61,7 @@ std::vector<std::vector<float>> cuda_heat_compute(int blockDimX, int blockDimY, 
 		checkCudaErrors(cudaMallocPitch(&d_temperature_in, &d_pitch, meshSize * sizeof(float), meshSize));
 		checkCudaErrors(cudaMallocPitch(&d_temperature_out, &d_pitch, meshSize * sizeof(float), meshSize));
 	} catch (CudaError& err) {
-		std::cout << err.what() << std::endl;
+		std::cout << err.what() << '\n';
 		return {};
 	}
 
@@ -87,7 +87,7 @@ std::vector<std::vector<float>> cuda_heat_compute(int blockDimX, int blockDimY, 
 
 		checkCudaErrors(
 			cudaMemcpy2D(temperature, pitch, d_temperature_in, d_pitch, meshSize * sizeof(float), meshSize, cudaMemcpyDeviceToHost));
-	} catch (CudaError& err) { std::cout << err.what() << std::endl; }
+	} catch (CudaError& err) { std::cout << err.what() << '\n'; }
 
 	SimpleTimer t("Computation results processing");
 	std::vector<std::vector<float>> result;
@@ -104,7 +104,7 @@ std::vector<std::vector<float>> cuda_heat_compute(int blockDimX, int blockDimY, 
 	try {
 		checkCudaErrors(cudaFree(d_temperature_in));
 		checkCudaErrors(cudaFree(d_temperature_out));
-	} catch (CudaError& err) { std::cout << err.what() << std::endl; }
+	} catch (CudaError& err) { std::cout << err.what() << '\n'; }
 
 	// cudaDeviceReset must be called before exiting in order for profiling and
 	// tracing tools such as Nsight and Visual Profiler to show complete traces.

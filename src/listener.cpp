@@ -26,14 +26,14 @@ void RequestListener::addListener(utility::string_t resource, std::function<web:
 		request.reply(response);
 	});
 
-	ucout << U("Configured (method:path): ") << methodNameToString(method) << U(":") << listeners.back().uri().path() << std::endl;
+	ucout << U("Configured (method:path): ") << methodNameToString(method) << U(":") << listeners.back().uri().path() << U("\n");
 }
 
 void RequestListener::start() {
-	ucout << U("Starting listener, base url: ") << listenerBaseURI << std::endl;
+	ucout << U("Starting listener, base url: ") << listenerBaseURI << U("\n");
 
 	for (auto& listener : listeners) {
-		ucout << U("...starting ") << listener.uri().path() << std::endl;
+		ucout << U("...starting ") << listener.uri().path() << U("\n");
 
 		try {
 			listener.open().wait();
