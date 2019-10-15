@@ -1,5 +1,6 @@
 #include "TerminationHandler.hpp"
 #include "listener.hpp"
+#include "ironbow_palette.hpp"
 #include <boost/algorithm/string.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <tuple>
@@ -29,14 +30,7 @@ auto encodeImage(const std::vector<std::vector<float>>& grid) {
 	cv::Mat image(static_cast<int>(grid.front().size()), static_cast<int>(grid.size()), CV_8UC3);
 	for (int y = 0; y < image.rows; ++y) {
 		for (int x = 0; x < image.cols; ++x) {
-			auto& bgra = image.at<cv::Vec3b>(x, y);
-			//TODO: proper color representation
-			//bgra[0] = UCHAR_MAX; // Blue
-			//bgra[1] = cv::saturate_cast<uchar>((float(image.cols - j)) / ((float)image.cols) * UCHAR_MAX); // Green
-			//bgra[2] = cv::saturate_cast<uchar>((float(image.rows - i)) / ((float)image.rows) * UCHAR_MAX); // Red
-			bgra[0] = 0; // Blue
-			bgra[1] = 0; // Green
-			bgra[2] = static_cast<int>(grid[y][x] * 4) % UCHAR_MAX; // Red
+			image.at<cv::Vec3b>(x, y) = tempToColor(grid[y][x]);
 		}
 	}
 

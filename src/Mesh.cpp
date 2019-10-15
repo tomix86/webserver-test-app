@@ -5,7 +5,7 @@ size_t STEPS;
 size_t MESH_SIZE;
 
 float Mesh::ENVIRONMENT_TEMP = 50.f;
-float Mesh::INITIAL_TEMP = 25.f;
+float Mesh::INITIAL_TEMP = -40.f;
 Mesh::ContainerType Mesh::temperature;
 
 bool VALIDATE_RESULTS = false;
