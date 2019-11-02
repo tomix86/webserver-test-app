@@ -47,6 +47,8 @@ __global__ void meshUpdateKernel(float* mesh_in, float* mesh_out, size_t pitch, 
 }
 
 std::vector<std::vector<float>> cuda_heat_compute(int blockDimX, int blockDimY, int meshSize, int steps) {
+	std::cout << "Computing result...\n";
+
 	meshSize += 2; // add edge rows/cols resembling environment temperature
 
 	size_t pitch;

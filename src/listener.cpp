@@ -29,7 +29,7 @@ void RequestListener::addListener(utility::string_t resource, std::function<web:
 	ucout << U("Configured (method:path): ") << methodNameToString(method) << U(":") << listeners.back().uri().path() << U("\n");
 }
 
-void RequestListener::start() {
+bool RequestListener::start() {
 	ucout << U("Starting listener, base url: ") << listenerBaseURI << U("\n");
 
 	for (auto& listener : listeners) {
@@ -37,10 +37,14 @@ void RequestListener::start() {
 
 		try {
 			listener.open().wait();
-		} catch (const std::exception& ex) { std::cerr << "RequestListener::start: " << ex.what() << '\n'; }
+		} catch (const std::exception& ex) {
+			std::cerr << "RequestListener::start: " << ex.what() << '\n';
+			return false;
+		}
 	}
 
 	std::cout << "All listeners successfully started\n";
+	return true;
 }
 
 void RequestListener::stop() {

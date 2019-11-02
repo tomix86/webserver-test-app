@@ -9,7 +9,7 @@ public:
 
 	void addListener(utility::string_t resource, std::function<web::http::http_response(web::http::http_request)> handler);
 
-	void start();
+	bool start();
 	void stop();
 
 private:
