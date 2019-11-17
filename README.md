@@ -8,6 +8,7 @@ A C++ applicaton simulating heat distiribution in a 2D body. It acts as a simple
 * [Boost](https://www.boost.org/) (tested with v1.70.0)
 * [CMake](https://cmake.org/download/) (tested with v3.15.5)
 * [vcpkg](https://github.com/Microsoft/vcpkg)
+* [OneAgent C++ SDK](https://github.com/Dynatrace/OneAgent-SDK-for-C) (included as a git submodule)
 
 # Building
 
@@ -34,6 +35,6 @@ $ sudo apt-get install libgdcm-tools python-vtkgdcm libvtkgdcm2.6 libvtkgdcm-jav
 ```
 $ mkdir build
 $ cd build
-PS> (Windows) cmake -G "Visual Studio 16 2019" -A x64 -DCMAKE_TOOLCHAIN_FILE="<vcpkg_directory>/scripts/buildsystems/vcpkg.cmake" ..
-$ (Linux) cmake -G "Unix Makefiles" -DCMAKE_TOOLCHAIN_FILE="<vcpkg_directory>/scripts/buildsystems/vcpkg.cmake" ..
+(Windows) PS> cmake -G "Visual Studio 16 2019" -A x64 -DCMAKE_TOOLCHAIN_FILE="<vcpkg_directory>/scripts/buildsystems/vcpkg.cmake" ..
+(Linux) $ cmake -G "Unix Makefiles" -DCMAKE_TOOLCHAIN_FILE="<vcpkg_directory>/scripts/buildsystems/vcpkg.cmake" ..
 ```

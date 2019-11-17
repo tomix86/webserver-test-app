@@ -3,6 +3,7 @@
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
 #include <mutex>
+#include <onesdk/onesdk.h>
 #include <opencv2/imgcodecs.hpp>
 #include <thread>
 #include <tuple>
@@ -16,9 +17,25 @@ using namespace std::chrono_literals;
 namespace po = boost::program_options;
 using web::http::status_codes, web::http::http_response, web::http::http_request;
 
+onesdk_webapplicationinfo_handle_t web_application_info_handle = ONESDK_INVALID_HANDLE;
+
 void initialize_heat_compute();
 void basic_heat_compute();
 std::vector<std::vector<float>> cuda_heat_compute(int blockDimX, int blockDimY, int meshSize, int steps);
+
+static auto make_string_t(const std::string& input) {
+	return utility::string_t{ input.begin(), input.end() };
+}
+
+static auto make_string(const utility::string_t& input) {
+	std::string result;
+
+	for(auto c : input) {
+		result.push_back(static_cast<char>(c));
+	}
+
+	return result;
+}
 
 static std::tuple<int, int, int, int> parseParams(const utility::string_t& queryString) {
 	std::vector<utility::string_t> params;
@@ -70,6 +87,22 @@ static http_response requestHandler(const http_request& req) try {
 	static std::mutex mutex;
 	std::lock_guard l{ mutex };
 
+	//TODO: Do I need to create/start it each time?
+	/* create tracer */
+    onesdk_tracer_handle_t const tracer = onesdk_incomingwebrequesttracer_create(
+        web_application_info_handle,
+        onesdk_asciistr(("/test?" + make_string(req.request_uri().query())).c_str()), //TODO: get root from request data
+        onesdk_asciistr("GET")); //TODO: get from request data
+
+    /* add information about the incoming request */
+    onesdk_incomingwebrequesttracer_set_remote_address(tracer, onesdk_asciistr(make_string(req.remote_address()).c_str()));
+    onesdk_incomingwebrequesttracer_add_request_header(tracer, onesdk_asciistr("Connection"), onesdk_asciistr("keep-alive"));
+    onesdk_incomingwebrequesttracer_add_request_header(tracer, onesdk_asciistr("Pragma"), onesdk_asciistr("no-cache"));
+    /* ... */
+
+    /* start tracer */
+    onesdk_tracer_start(tracer);
+
 	printRequestMetadata(req);
 
 	SimpleTimer t("Request handler");
@@ -80,17 +113,23 @@ static http_response requestHandler(const http_request& req) try {
 		return status_codes::InternalError;
 	}
 
-	return makeResponse(result);
+	const auto response{makeResponse(result)};
+
+    /* add information about the response */
+    //onesdk_incomingwebrequesttracer_add_response_header(tracer, onesdk_asciistr("Transfer-Encoding"), onesdk_asciistr("chunked"));
+  	onesdk_incomingwebrequesttracer_add_response_header(tracer, onesdk_asciistr("Content-Length"), onesdk_asciistr(std::to_string(response.headers().content_length()).c_str()));
+    onesdk_incomingwebrequesttracer_set_status_code(tracer, 200);
+
+	//TODO: handle onesdk_tracer_error()
+	//TODO: return proper response in case of request handling failure
+
+	return response;
 } catch (const std::invalid_argument& err) {
 	std::cerr << err.what() << '\n';
 	return status_codes::BadRequest;
 } catch (const std::runtime_error& err) {
 	std::cerr << err.what() << '\n';
 	return status_codes::InternalError;
-}
-
-static auto make_string(const std::string& input) {
-	return utility::string_t{ input.begin(), input.end() };
 }
 
 utility::string_t parseCommandLine(int argc, char* argv[]) {
@@ -111,11 +150,28 @@ utility::string_t parseCommandLine(int argc, char* argv[]) {
 		exit(0);
 	}
 
-	return U("http://") + make_string(address) + U(":") + make_string(port) + U("/");
+	return U("http://") + make_string_t(address) + U(":") + make_string_t(port) + U("/");
+}
+
+static void mycallback(const char* message) {
+    std::cout << message;
 }
 
 int main(int argc, char* argv[]) try {
 	registerTerminationHandler();
+
+	/* Initialize SDK */
+    const auto onesdk_init_result{ onesdk_initialize() };
+
+	/* optional: Set logging callbacks. */
+    onesdk_agent_set_warning_callback(mycallback); /* Highly recommended. */
+    onesdk_agent_set_verbose_callback(mycallback); /* Recommended for development & debugging. */
+
+
+    web_application_info_handle = onesdk_webapplicationinfo_create(
+        onesdk_asciistr("www.gpudev.icu"),      /* name of the web server that hosts your application */ //TODO: is this a correct name?
+        onesdk_asciistr("GPUPluginTestApp"),    /* unique name for your web application               */
+        onesdk_asciistr("/")         /* context root of your web application               */ );
 
 	const auto listeningAddress{ parseCommandLine(argc, argv) };
 
@@ -131,6 +187,14 @@ int main(int argc, char* argv[]) try {
 	}
 
 	listener.stop();
+
+    onesdk_webapplicationinfo_delete(web_application_info_handle);
+    web_application_info_handle = ONESDK_INVALID_HANDLE;
+
+	/* Shut down SDK */
+    if (onesdk_init_result == ONESDK_SUCCESS) {
+        onesdk_shutdown();
+	}
 
 	return 0;
 } catch (const std::exception& ex) {
