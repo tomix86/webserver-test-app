@@ -30,7 +30,7 @@ static auto make_string_t(const std::string& input) {
 static auto make_string(const utility::string_t& input) {
 	std::string result;
 
-	for(auto c : input) {
+	for (auto c : input) {
 		result.push_back(static_cast<char>(c));
 	}
 
@@ -75,7 +75,7 @@ static auto makeResponse(const std::vector<std::vector<float>>& result) {
 
 static void printRequestMetadata(const http_request& req) {
 	static int count;
-	ucout << U("Request #") << ++count << U(" received: ") << req.request_uri().query() << U("\n");
+	ucout << U("\nRequest #") << ++count << U(" received: ") << req.request_uri().to_string() << U("\n");
 	ucout << U("Remote address: ") << req.remote_address() << U("\n");
 	ucout << U("Headers: ") << U("\n");
 	for (const auto& [header, content] : req.headers()) {
@@ -87,21 +87,18 @@ static http_response requestHandler(const http_request& req) try {
 	static std::mutex mutex;
 	std::lock_guard l{ mutex };
 
-	//TODO: Do I need to create/start it each time?
-	/* create tracer */
-    onesdk_tracer_handle_t const tracer = onesdk_incomingwebrequesttracer_create(
-        web_application_info_handle,
-        onesdk_asciistr(("/test?" + make_string(req.request_uri().query())).c_str()), //TODO: get root from request data
-        onesdk_asciistr("GET")); //TODO: get from request data
+	const auto hostAddress{ req.headers().find(U("Host"))->second }; //TODO: handle error in case Host header is not set
+	const auto fullURL{ make_string(hostAddress + req.request_uri().to_string()) };
+	const auto method{ make_string(req.method()) };
+	const auto tracer{ onesdk_incomingwebrequesttracer_create(web_application_info_handle, onesdk_asciistr(fullURL.c_str()), onesdk_asciistr(method.c_str())) };
+	
+	onesdk_incomingwebrequesttracer_set_remote_address(tracer, onesdk_asciistr(make_string(req.remote_address()).c_str()));
+	
+	for (const auto& [header, content] : req.headers()) {
+		onesdk_incomingwebrequesttracer_add_request_header(tracer, onesdk_asciistr(make_string(header).c_str()), onesdk_asciistr(make_string(content).c_str()));
+	}
 
-    /* add information about the incoming request */
-    onesdk_incomingwebrequesttracer_set_remote_address(tracer, onesdk_asciistr(make_string(req.remote_address()).c_str()));
-    onesdk_incomingwebrequesttracer_add_request_header(tracer, onesdk_asciistr("Connection"), onesdk_asciistr("keep-alive"));
-    onesdk_incomingwebrequesttracer_add_request_header(tracer, onesdk_asciistr("Pragma"), onesdk_asciistr("no-cache"));
-    /* ... */
-
-    /* start tracer */
-    onesdk_tracer_start(tracer);
+	onesdk_tracer_start(tracer);
 
 	printRequestMetadata(req);
 
@@ -113,15 +110,19 @@ static http_response requestHandler(const http_request& req) try {
 		return status_codes::InternalError;
 	}
 
-	const auto response{makeResponse(result)};
+	const auto response{ makeResponse(result) };
 
-    /* add information about the response */
-    //onesdk_incomingwebrequesttracer_add_response_header(tracer, onesdk_asciistr("Transfer-Encoding"), onesdk_asciistr("chunked"));
-  	onesdk_incomingwebrequesttracer_add_response_header(tracer, onesdk_asciistr("Content-Length"), onesdk_asciistr(std::to_string(response.headers().content_length()).c_str()));
-    onesdk_incomingwebrequesttracer_set_status_code(tracer, 200);
+	for (const auto& [header, content] : req.headers()) {
+		onesdk_incomingwebrequesttracer_add_response_header(tracer, onesdk_asciistr(make_string(header).c_str()), onesdk_asciistr(make_string(content).c_str()));	
+	}
+	
+	onesdk_incomingwebrequesttracer_set_status_code(tracer, 200);
 
 	//TODO: handle onesdk_tracer_error()
+	//if (something_went_wrong) onesdk_tracer_error(tracer, onesdk_asciistr("error type"), onesdk_asciistr("error message"));
 	//TODO: return proper response in case of request handling failure
+
+	onesdk_tracer_end(tracer);
 
 	return response;
 } catch (const std::invalid_argument& err) {
@@ -154,24 +155,22 @@ utility::string_t parseCommandLine(int argc, char* argv[]) {
 }
 
 static void mycallback(const char* message) {
-    std::cout << message;
+	std::cout << message;
 }
 
 int main(int argc, char* argv[]) try {
-	registerTerminationHandler();
+	if(!registerTerminationHandler()) {
+		std::cerr << "Failed to register terminatin handler!\n";
+	}
 
-	/* Initialize SDK */
-    const auto onesdk_init_result{ onesdk_initialize() };
+	const auto onesdk_init_result{ onesdk_initialize() };
 
-	/* optional: Set logging callbacks. */
-    onesdk_agent_set_warning_callback(mycallback); /* Highly recommended. */
-    onesdk_agent_set_verbose_callback(mycallback); /* Recommended for development & debugging. */
+	onesdk_agent_set_warning_callback(mycallback);
+	onesdk_agent_set_verbose_callback(mycallback);
 
-
-    web_application_info_handle = onesdk_webapplicationinfo_create(
-        onesdk_asciistr("www.gpudev.icu"),      /* name of the web server that hosts your application */ //TODO: is this a correct name?
-        onesdk_asciistr("GPUPluginTestApp"),    /* unique name for your web application               */
-        onesdk_asciistr("/")         /* context root of your web application               */ );
+	// TODO: is www.gpudev.icu a correct name ?
+	web_application_info_handle = onesdk_webapplicationinfo_create(
+		onesdk_asciistr("www.gpudev.icu"), onesdk_asciistr("GPUPluginTestApp"), onesdk_asciistr("/"));
 
 	const auto listeningAddress{ parseCommandLine(argc, argv) };
 
@@ -179,7 +178,7 @@ int main(int argc, char* argv[]) try {
 	basic_heat_compute();
 
 	RequestListener listener{ listeningAddress };
-	listener.addListener(U("test"), requestHandler);
+	listener.addListener(U("heat-distrib"), requestHandler);
 	if (!listener.start()) { return 1; }
 
 	while (running) {
@@ -188,16 +187,13 @@ int main(int argc, char* argv[]) try {
 
 	listener.stop();
 
-    onesdk_webapplicationinfo_delete(web_application_info_handle);
-    web_application_info_handle = ONESDK_INVALID_HANDLE;
+	onesdk_webapplicationinfo_delete(web_application_info_handle);
+	web_application_info_handle = ONESDK_INVALID_HANDLE;
 
-	/* Shut down SDK */
-    if (onesdk_init_result == ONESDK_SUCCESS) {
-        onesdk_shutdown();
-	}
+	if (onesdk_init_result == ONESDK_SUCCESS) { onesdk_shutdown(); }
 
 	return 0;
 } catch (const std::exception& ex) {
-	std::cout << "Fatal error: " << ex.what();
+	std::cerr << "Fatal error: " << ex.what();
 	return 1;
 }
