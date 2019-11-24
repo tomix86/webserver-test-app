@@ -1,6 +1,7 @@
 #ifdef _WINDOWS
 #include <Windows.h>
 #else
+ #include <signal.h>
 #endif //_WINDOWS
 
 #include <atomic>
@@ -8,14 +9,19 @@
 
 std::atomic_bool running{ true };
 
-void registerTerminationHandler() {
+bool registerTerminationHandler() {
 #ifdef _WINDOWS
-	SetConsoleCtrlHandler(
+	return SetConsoleCtrlHandler(
 		[](auto) {
 			running = false;
 			return TRUE;
 		},
-		TRUE);
+		TRUE) != 0;
 #else
+	struct sigaction handler{};
+	handler.sa_handler = [](auto){ running = false; };
+	handler.sa_flags = 0;
+	return sigaction(SIGTERM, &handler, nullptr) == 0 && 
+		sigaction(SIGINT, &handler, nullptr) == 0;
 #endif //_WINDOWS
 }
