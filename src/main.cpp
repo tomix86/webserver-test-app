@@ -17,7 +17,7 @@ using namespace std::chrono_literals;
 namespace po = boost::program_options;
 using web::http::status_codes, web::http::http_response, web::http::http_request;
 
-onesdk_webapplicationinfo_handle_t web_application_info_handle = ONESDK_INVALID_HANDLE;
+onesdk_webapplicationinfo_handle_t web_application_info_handle{ ONESDK_INVALID_HANDLE };
 
 void initialize_heat_compute();
 void basic_heat_compute();
@@ -73,64 +73,99 @@ static auto makeResponse(const std::vector<std::vector<float>>& result) {
 	return response;
 }
 
-static void printRequestMetadata(const http_request& req) {
-	static int count;
-	ucout << U("\nRequest #") << ++count << U(" received: ") << req.request_uri().to_string() << U("\n");
-	ucout << U("Remote address: ") << req.remote_address() << U("\n");
-	ucout << U("Headers: ") << U("\n");
+template <typename T>
+static void printHeaders(const T& req) {
 	for (const auto& [header, content] : req.headers()) {
 		ucout << U("   ") << header << U(" = ") << content << U("\n");
 	}
 }
 
-static http_response requestHandler(const http_request& req) try {
+static void printRequestMetadata(const http_request& req) {
+	static int count;
+	ucout << U("\nRequest #") << ++count << U(" received: ") << req.request_uri().to_string() << U("\n");
+	ucout << U("Remote address: ") << req.remote_address() << U("\n");
+	ucout << U("Headers: ") << U("\n");
+	printHeaders(req);
+}
+
+class TracerWrapper {
+public:
+	TracerWrapper(const http_request& req) {
+		initialize(req);
+		onesdk_tracer_start(tracer);
+	}
+
+	void setResponseData(const http_response& response) {
+		for (const auto& [header, content] :
+			response.headers()) {
+			onesdk_incomingwebrequesttracer_add_response_header(
+				tracer, onesdk_asciistr(make_string(header).c_str()), onesdk_asciistr(make_string(content).c_str()));
+		}
+
+		onesdk_incomingwebrequesttracer_set_status_code(tracer, response.status_code());
+	}
+
+	void setResponseErrorData(const char* errorType, const char* errorMessage) {
+		onesdk_tracer_error(tracer, onesdk_asciistr(errorType), onesdk_asciistr(errorMessage));
+	}
+
+	~TracerWrapper() { onesdk_tracer_end(tracer); }
+
+private:
+	onesdk_tracer_handle_t tracer;
+
+	void initialize(const http_request& req) {
+		const auto hostAddress{ req.headers().find(U("Host"))->second }; //TODO: handle error in case Host header is not set
+		const auto fullURL{ make_string(hostAddress + req.request_uri().to_string()) };
+		const auto method{ make_string(req.method()) };
+		tracer = onesdk_incomingwebrequesttracer_create(
+			web_application_info_handle, onesdk_asciistr(fullURL.c_str()), onesdk_asciistr(method.c_str()));
+
+		onesdk_incomingwebrequesttracer_set_remote_address(tracer, onesdk_asciistr(make_string(req.remote_address()).c_str()));
+
+		for (const auto& [header, content] : req.headers()) {
+			onesdk_incomingwebrequesttracer_add_request_header(
+				tracer, onesdk_asciistr(make_string(header).c_str()), onesdk_asciistr(make_string(content).c_str()));
+		}
+	}
+};
+
+auto errorWrapper(TracerWrapper& tracer, int httpCode, const char* errorType, const char* errorMessage) {
+	std::cerr << errorMessage << "\n";
+	http_response response{ status_codes::InternalError };
+	tracer.setResponseData(response);
+	tracer.setResponseErrorData("Error processing request", "Failed to compute result");
+	return response;
+}
+
+static http_response requestHandler(const http_request& req) {
 	static std::mutex mutex;
 	std::lock_guard l{ mutex };
 
-	const auto hostAddress{ req.headers().find(U("Host"))->second }; //TODO: handle error in case Host header is not set
-	const auto fullURL{ make_string(hostAddress + req.request_uri().to_string()) };
-	const auto method{ make_string(req.method()) };
-	const auto tracer{ onesdk_incomingwebrequesttracer_create(web_application_info_handle, onesdk_asciistr(fullURL.c_str()), onesdk_asciistr(method.c_str())) };
-	
-	onesdk_incomingwebrequesttracer_set_remote_address(tracer, onesdk_asciistr(make_string(req.remote_address()).c_str()));
-	
-	for (const auto& [header, content] : req.headers()) {
-		onesdk_incomingwebrequesttracer_add_request_header(tracer, onesdk_asciistr(make_string(header).c_str()), onesdk_asciistr(make_string(content).c_str()));
-	}
-
-	onesdk_tracer_start(tracer);
+	TracerWrapper tracer{ req };
 
 	printRequestMetadata(req);
 
-	SimpleTimer t("Request handler");
-	const auto [blockX, blockY, meshSize, steps]{ parseParams(req.request_uri().query()) };
-	const auto result{ cuda_heat_compute(blockX, blockY, meshSize, steps) };
-	if (result.empty()) {
-		std::cerr << "Failed to compute result\n";
-		return status_codes::InternalError;
+	try {
+		SimpleTimer t("Request handler");
+		const auto [blockX, blockY, meshSize, steps]{ parseParams(req.request_uri().query()) };
+		const auto result{ cuda_heat_compute(blockX, blockY, meshSize, steps) };
+		if (result.empty()) {
+			return errorWrapper(tracer, status_codes::InternalError, "Error processing request", "Failed to compute result");
+		}
+
+		const auto response{ makeResponse(result) };
+		
+		ucout << U("Response headers: ") << U("\n");
+		printHeaders(response);
+
+		tracer.setResponseData(response);
+		return response;
+	} catch (const std::invalid_argument& err) {
+		return errorWrapper(tracer, status_codes::BadRequest, "Invalid request", err.what());
+	} catch (const std::runtime_error& err) {
+		return errorWrapper(tracer, status_codes::InternalError, "Unknown error processing request", err.what());
 	}
-
-	const auto response{ makeResponse(result) };
-
-	for (const auto& [header, content] : req.headers()) {
-		onesdk_incomingwebrequesttracer_add_response_header(tracer, onesdk_asciistr(make_string(header).c_str()), onesdk_asciistr(make_string(content).c_str()));	
-	}
-	
-	onesdk_incomingwebrequesttracer_set_status_code(tracer, 200);
-
-	//TODO: handle onesdk_tracer_error()
-	//if (something_went_wrong) onesdk_tracer_error(tracer, onesdk_asciistr("error type"), onesdk_asciistr("error message"));
-	//TODO: return proper response in case of request handling failure
-
-	onesdk_tracer_end(tracer);
-
-	return response;
-} catch (const std::invalid_argument& err) {
-	std::cerr << err.what() << '\n';
-	return status_codes::BadRequest;
-} catch (const std::runtime_error& err) {
-	std::cerr << err.what() << '\n';
-	return status_codes::InternalError;
 }
 
 utility::string_t parseCommandLine(int argc, char* argv[]) {
@@ -159,18 +194,15 @@ static void mycallback(const char* message) {
 }
 
 int main(int argc, char* argv[]) try {
-	if(!registerTerminationHandler()) {
-		std::cerr << "Failed to register terminatin handler!\n";
-	}
+	if (!registerTerminationHandler()) { std::cerr << "Failed to register terminatin handler!\n"; }
 
 	const auto onesdk_init_result{ onesdk_initialize() };
 
 	onesdk_agent_set_warning_callback(mycallback);
 	onesdk_agent_set_verbose_callback(mycallback);
 
-	// TODO: is www.gpudev.icu a correct name ?
 	web_application_info_handle = onesdk_webapplicationinfo_create(
-		onesdk_asciistr("www.gpudev.icu"), onesdk_asciistr("GPUPluginTestApp"), onesdk_asciistr("/"));
+		onesdk_asciistr("GPUBackend"), onesdk_asciistr("GPUPluginTestApp"), onesdk_asciistr("/"));
 
 	const auto listeningAddress{ parseCommandLine(argc, argv) };
 

@@ -5,7 +5,7 @@
 
 //externs
 size_t STEPS;
-size_t MESH_SIZE;
+long long int MESH_SIZE;
 
 float Mesh::ENVIRONMENT_TEMP = 50.f;
 float Mesh::INITIAL_TEMP = -40.f;
