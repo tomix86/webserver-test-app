@@ -8,6 +8,8 @@
 #include "Mesh.hpp"
 #include "SimpleTimer.hpp"
 
+//TODO: throw exception outside and use spdlog there, otherwise problems wit compilation
+
 static std::string to_string(cudaError_t error) {
 	char buf[256];
 	snprintf(buf, 256, "%d", error);
@@ -47,8 +49,6 @@ __global__ void meshUpdateKernel(float* mesh_in, float* mesh_out, size_t pitch, 
 }
 
 std::vector<std::vector<float>> cuda_heat_compute(int blockDimX, int blockDimY, int meshSize, int steps) {
-	std::cout << "Computing result...\n";
-
 	meshSize += 2; // add edge rows/cols resembling environment temperature
 
 	size_t pitch;
@@ -56,18 +56,10 @@ std::vector<std::vector<float>> cuda_heat_compute(int blockDimX, int blockDimY, 
 	size_t d_pitch;
 	float *d_temperature_in, *d_temperature_out;
 
-	std::cout << "GPU global memory allocation size: " << std::setprecision(2) << std::fixed
-			  << (2.f * meshSize * meshSize * sizeof(float) / 1'000'000) << "MB\n";
+	checkCudaErrors(cudaMallocPitch(&d_temperature_in, &d_pitch, meshSize * sizeof(float), meshSize));
+	checkCudaErrors(cudaMallocPitch(&d_temperature_out, &d_pitch, meshSize * sizeof(float), meshSize));
 
-	try {
-		checkCudaErrors(cudaMallocPitch(&d_temperature_in, &d_pitch, meshSize * sizeof(float), meshSize));
-		checkCudaErrors(cudaMallocPitch(&d_temperature_out, &d_pitch, meshSize * sizeof(float), meshSize));
-	} catch (CudaError& err) {
-		std::cout << err.what() << '\n';
-		return {};
-	}
-
-	try {
+	{
 		SimpleTimer t("CUDA computations");
 		dim3 blockSize(blockDimX, blockDimY);
 		unsigned computedGridDimX = (meshSize + blockSize.x - 1) / blockSize.x;
@@ -89,7 +81,7 @@ std::vector<std::vector<float>> cuda_heat_compute(int blockDimX, int blockDimY, 
 
 		checkCudaErrors(
 			cudaMemcpy2D(temperature, pitch, d_temperature_in, d_pitch, meshSize * sizeof(float), meshSize, cudaMemcpyDeviceToHost));
-	} catch (CudaError& err) { std::cout << err.what() << '\n'; }
+	}
 
 	SimpleTimer t("Computation results processing");
 	std::vector<std::vector<float>> result;
@@ -102,11 +94,10 @@ std::vector<std::vector<float>> cuda_heat_compute(int blockDimX, int blockDimY, 
 
 	if (!validateResults(temperature, pitch)) { return {}; }
 
+	//TODO: RAII guard to avoid resource leaks
 	delete[] temperature;
-	try {
-		checkCudaErrors(cudaFree(d_temperature_in));
-		checkCudaErrors(cudaFree(d_temperature_out));
-	} catch (CudaError& err) { std::cout << err.what() << '\n'; }
+	checkCudaErrors(cudaFree(d_temperature_in));
+	checkCudaErrors(cudaFree(d_temperature_out));
 
 	// cudaDeviceReset must be called before exiting in order for profiling and
 	// tracing tools such as Nsight and Visual Profiler to show complete traces.

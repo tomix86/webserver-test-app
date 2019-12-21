@@ -2,19 +2,22 @@
 
 #include <iostream>
 
+#include "spdlog/spdlog.h"
+#include "StringUtil.h"
+
 using namespace std::string_literals;
 
 RequestListener::RequestListener(utility::string_t baseURI) : listenerBaseURI{ baseURI } {}
 
 auto methodNameToString(web::http::method method) {
 	if (method == web::http::methods::GET) {
-		return U("GET");
+		return "GET";
 	} else if (method == web::http::methods::PUT) {
-		return U("PUT");
+		return "PUT";
 	} else if (method == web::http::methods::DEL) {
-		return U("DELETE");
+		return "DELETE";
 	} else {
-		return U("Unknown");
+		return "Unknown";
 	}
 }
 
@@ -26,34 +29,34 @@ void RequestListener::addListener(utility::string_t resource, std::function<web:
 		request.reply(response);
 	});
 
-	ucout << U("Configured (method:path): ") << methodNameToString(method) << U(":") << listeners.back().uri().path() << U("\n");
+	spdlog::info("Configured (method:path): {}:{}", methodNameToString(method), make_string(listeners.back().uri().path()));
 }
 
 bool RequestListener::start() {
-	ucout << U("Starting listener, base url: ") << listenerBaseURI << U("\n");
+	spdlog::info("Starting listener, base url: {}", make_string(listenerBaseURI));
 
 	for (auto& listener : listeners) {
-		ucout << U("...starting ") << listener.uri().path() << U("\n");
+		spdlog::info("...starting {}", make_string(listener.uri().path()));
 
 		try {
 			listener.open().wait();
 		} catch (const std::exception& ex) {
-			std::cerr << "RequestListener::start: " << ex.what() << '\n';
+			spdlog::error("RequestListener::start: {}", ex.what());
 			return false;
 		}
 	}
 
-	std::cout << "All listeners successfully started\n";
+	spdlog::info("All listeners successfully started");
 	return true;
 }
 
 void RequestListener::stop() {
-	std::cout << "Stopping listeners\n";
+	spdlog::info("Stopping listeners");
 
 	for (auto& listener : listeners) {
-		ucout << U("...stopping ") << listener.uri().path() << '\n';
+		spdlog::info("...stopping {}", make_string(listener.uri().path()));
 		listener.close();
 	}
 
-	std::cout << "All listeners successfully stopped\n";
+	spdlog::info("All listeners successfully stopped");
 }

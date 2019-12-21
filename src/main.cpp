@@ -2,6 +2,7 @@
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
+#include <filesystem>
 #include <mutex>
 #include <onesdk/onesdk.h>
 #include <opencv2/imgcodecs.hpp>
@@ -9,9 +10,13 @@
 #include <tuple>
 
 #include "SimpleTimer.hpp"
+#include "StringUtil.h"
 #include "TerminationHandler.hpp"
 #include "ironbow_palette.hpp"
 #include "listener.hpp"
+#include "spdlog/sinks/basic_file_sink.h"
+#include "spdlog/sinks/stdout_color_sinks.h"
+#include "spdlog/spdlog.h"
 
 using namespace std::chrono_literals;
 namespace po = boost::program_options;
@@ -23,25 +28,11 @@ void initialize_heat_compute();
 void basic_heat_compute();
 std::vector<std::vector<float>> cuda_heat_compute(int blockDimX, int blockDimY, int meshSize, int steps);
 
-static auto make_string_t(const std::string& input) {
-	return utility::string_t{ input.begin(), input.end() };
-}
-
-static auto make_string(const utility::string_t& input) {
-	std::string result;
-
-	for (auto c : input) {
-		result.push_back(static_cast<char>(c));
-	}
-
-	return result;
-}
-
 static std::tuple<int, int, int, int> parseParams(const utility::string_t& queryString) {
 	std::vector<utility::string_t> params;
 	boost::split(params, queryString, boost::is_any_of("&"));
 	for (const auto& param : params) {
-		ucout << U("Param: ") << param << U("\n");
+		spdlog::debug("Param: {}", make_string(param));
 	}
 
 	if (params.size() != 4) { throw std::invalid_argument{ "Invalid number of request paramers" }; }
@@ -73,18 +64,17 @@ static auto makeResponse(const std::vector<std::vector<float>>& result) {
 	return response;
 }
 
-template <typename T>
-static void printHeaders(const T& req) {
+template <typename T> static void printHeaders(const T& req) {
 	for (const auto& [header, content] : req.headers()) {
-		ucout << U("   ") << header << U(" = ") << content << U("\n");
+		spdlog::debug("   {} = {}", make_string(header), make_string(content));
 	}
 }
 
 static void printRequestMetadata(const http_request& req) {
 	static int count;
-	ucout << U("\nRequest #") << ++count << U(" received: ") << req.request_uri().to_string() << U("\n");
-	ucout << U("Remote address: ") << req.remote_address() << U("\n");
-	ucout << U("Headers: ") << U("\n");
+	spdlog::info("Request #{} received: {}", ++count, make_string(req.request_uri().to_string()));
+	spdlog::debug("Remote address: {}", make_string(req.remote_address()));
+	spdlog::debug("Headers:");
 	printHeaders(req);
 }
 
@@ -96,8 +86,7 @@ public:
 	}
 
 	void setResponseData(const http_response& response) {
-		for (const auto& [header, content] :
-			response.headers()) {
+		for (const auto& [header, content] : response.headers()) {
 			onesdk_incomingwebrequesttracer_add_response_header(
 				tracer, onesdk_asciistr(make_string(header).c_str()), onesdk_asciistr(make_string(content).c_str()));
 		}
@@ -131,7 +120,7 @@ private:
 };
 
 auto errorWrapper(TracerWrapper& tracer, int httpCode, const char* errorType, const char* errorMessage) {
-	std::cerr << errorMessage << "\n";
+	spdlog::error(errorMessage);
 	http_response response{ status_codes::InternalError };
 	tracer.setResponseData(response);
 	tracer.setResponseErrorData("Error processing request", "Failed to compute result");
@@ -149,14 +138,18 @@ static http_response requestHandler(const http_request& req) {
 	try {
 		SimpleTimer t("Request handler");
 		const auto [blockX, blockY, meshSize, steps]{ parseParams(req.request_uri().query()) };
+
+		spdlog::debug("Computing result...");
+		//TODO: set precision 2, fixed point
+		spdlog::debug("GPU global memory allocation size: {} MB", 2.f * meshSize * meshSize * sizeof(float) / 1'000'000);
 		const auto result{ cuda_heat_compute(blockX, blockY, meshSize, steps) };
 		if (result.empty()) {
 			return errorWrapper(tracer, status_codes::InternalError, "Error processing request", "Failed to compute result");
 		}
 
 		const auto response{ makeResponse(result) };
-		
-		ucout << U("Response headers: ") << U("\n");
+
+		spdlog::debug("Response headers:");
 		printHeaders(response);
 
 		tracer.setResponseData(response);
@@ -164,7 +157,7 @@ static http_response requestHandler(const http_request& req) {
 	} catch (const std::invalid_argument& err) {
 		return errorWrapper(tracer, status_codes::BadRequest, "Invalid request", err.what());
 	} catch (const std::runtime_error& err) {
-		return errorWrapper(tracer, status_codes::InternalError, "Unknown error processing request", err.what());
+		return errorWrapper(tracer, status_codes::InternalError, "Error processing request", err.what());
 	}
 }
 
@@ -182,24 +175,43 @@ utility::string_t parseCommandLine(int argc, char* argv[]) {
 	po::notify(vm);
 
 	if (vm.count("help")) {
-		std::cout << desc << "\n";
+		std::cout << desc << '\n';
 		exit(0);
 	}
 
 	return U("http://") + make_string_t(address) + U(":") + make_string_t(port) + U("/");
 }
 
-static void mycallback(const char* message) {
-	std::cout << message;
+bool initLogger() try {
+	auto console_stdout_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+	console_stdout_sink->set_level(spdlog::level::info);
+	console_stdout_sink->set_pattern("[%^%l%$] %v");
+
+	auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("plugin_test_app.log", true);
+	file_sink->set_level(spdlog::level::trace);
+
+	const auto logger{ std::make_shared<spdlog::logger>("log", spdlog::sinks_init_list({ console_stdout_sink, file_sink })) };
+	logger->set_level(spdlog::level::debug);
+	spdlog::set_default_logger(logger);
+
+	spdlog::info("Logger initialized");
+	spdlog::debug("Current working directory: \"{}\", pid {}", std::filesystem::current_path().string(), getpid());
+
+	return true;
+} catch (const spdlog::spdlog_ex& ex) {
+	std::cerr << "Logger initialization failed: " << ex.what() << std::endl;
+	return false;
 }
 
 int main(int argc, char* argv[]) try {
-	if (!registerTerminationHandler()) { std::cerr << "Failed to register terminatin handler!\n"; }
+	if (!initLogger()) { return 1; }
+
+	if (!registerTerminationHandler()) { spdlog::error("Failed to register terminatin handler!"); }
 
 	const auto onesdk_init_result{ onesdk_initialize() };
 
-	onesdk_agent_set_warning_callback(mycallback);
-	onesdk_agent_set_verbose_callback(mycallback);
+	onesdk_agent_set_warning_callback([](auto message) { spdlog::warn(message); });
+	onesdk_agent_set_verbose_callback([](auto message) { spdlog::info(message); });
 
 	web_application_info_handle = onesdk_webapplicationinfo_create(
 		onesdk_asciistr("GPUBackend"), onesdk_asciistr("GPUPluginTestApp"), onesdk_asciistr("/"));
@@ -226,6 +238,6 @@ int main(int argc, char* argv[]) try {
 
 	return 0;
 } catch (const std::exception& ex) {
-	std::cerr << "Fatal error: " << ex.what();
+	spdlog::info("Fatal error: {}", ex.what());
 	return 1;
 }

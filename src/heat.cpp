@@ -2,13 +2,14 @@
 
 #include "Mesh.hpp"
 #include "SimpleTimer.hpp"
+#include "spdlog/spdlog.h"
 
 void initialize_heat_compute() {
 	//TODO: parameterize
 	setValidateResults(false);
 	STEPS = 1;
 	MESH_SIZE = 100;
-	std::cout << "Single Allocation size will be: " << sizeof(float) * MESH_SIZE * MESH_SIZE / (1024 * 1024) << "MiB\n";
+	spdlog::info("Single Allocation size will be: {} MiB", sizeof(float) * MESH_SIZE * MESH_SIZE / (1024 * 1024));
 }
 
 void basic_heat_compute() {
@@ -18,8 +19,8 @@ void basic_heat_compute() {
 	try {
 		m.resize(MESH_SIZE);
 		nodes = Mesh::temperature;
-	} catch (std::exception ex) {
-		std::cout << ex.what() << '\n';
+	} catch (const std::exception& ex) {
+		spdlog::error(ex.what());
 		exit(-1);
 	}
 
