@@ -41,7 +41,7 @@ static std::tuple<int, int, int, int> parseParams(const utility::string_t& query
 }
 
 static auto encodeImage(const std::vector<std::vector<float>>& grid) {
-	SimpleTimer t("Image encoding");
+	SimpleTimer t("Image encoding", true);
 	cv::Mat image(static_cast<int>(grid.front().size()), static_cast<int>(grid.size()), CV_8UC3);
 	for (int y = 0; y < image.rows; ++y) {
 		for (int x = 0; x < image.cols; ++x) {

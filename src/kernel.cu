@@ -81,7 +81,7 @@ std::vector<std::vector<float>> cuda_heat_compute(int blockDimX, int blockDimY, 
 			cudaMemcpy2D(temperature, pitch, d_temperature_in, d_pitch, meshSize * sizeof(float), meshSize, cudaMemcpyDeviceToHost));
 	}
 
-	SimpleTimer t("Computation results processing");
+	SimpleTimer t("Computation results processing", true);
 	std::vector<std::vector<float>> result;
 	for (int y = 1; y < meshSize - 1; ++y) {
 		result.emplace_back();

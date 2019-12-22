@@ -2,7 +2,7 @@
 
 #include "spdlog/spdlog.h"
 
-SimpleTimer::SimpleTimer(std::string name) : name(name) {
+SimpleTimer::SimpleTimer(std::string name, bool debug) : name{ name }, debug{ debug } {
 #ifndef _WIN32
 	clock_gettime(CLOCK_MONOTONIC, &begin);
 #else
@@ -20,5 +20,10 @@ SimpleTimer::~SimpleTimer(void) {
 	timeDiff = std::chrono::duration_cast<std::chrono::milliseconds>(clock::now() - begin).count();
 #endif
 
-	spdlog::info("Execution of \"{}\" took {}ms", name, timeDiff);
+	constexpr auto formatString{ "Execution of \"{}\" took {}ms" };
+	if (debug) {
+		spdlog::debug(formatString, name, timeDiff);
+	} else {
+		spdlog::info(formatString, name, timeDiff);
+	}
 }

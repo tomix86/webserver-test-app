@@ -24,7 +24,7 @@ void basic_heat_compute() {
 		exit(-1);
 	}
 
-	SimpleTimer t{ "Basic implementation" };
+	SimpleTimer t{ "Basic implementation", true };
 	for (size_t step = 0; step < STEPS; ++step) {
 		//OpenMP 2.0 does not have collapse(2)...
 #pragma omp parallel for shared(nodes)

@@ -13,11 +13,12 @@ public:
 	typedef std::chrono::high_resolution_clock clock;
 #endif
 
-	SimpleTimer(std::string name);
+	explicit SimpleTimer(std::string name, bool debug = false);
 	~SimpleTimer(void);
 
 private:
 	const std::string name;
+	const bool debug;
 #ifndef _WIN32
 	timespec begin;
 #else
