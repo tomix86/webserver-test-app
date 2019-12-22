@@ -8,8 +8,6 @@
 #include "Mesh.hpp"
 #include "SimpleTimer.hpp"
 
-//TODO: throw exception outside and use spdlog there, otherwise problems wit compilation
-
 static std::string to_string(cudaError_t error) {
 	char buf[256];
 	snprintf(buf, 256, "%d", error);

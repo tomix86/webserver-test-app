@@ -104,8 +104,12 @@ private:
 	onesdk_tracer_handle_t tracer;
 
 	void initialize(const http_request& req) {
-		const auto hostAddress{ req.headers().find(U("Host"))->second }; //TODO: handle error in case Host header is not set
-		const auto fullURL{ make_string(hostAddress + req.request_uri().to_string()) };
+		const auto getHostAddress{ [&] {
+			const auto hostHeader{ req.headers().find(U("Host")) };
+			return (hostHeader != req.headers().end() ? hostHeader->second : U(""));
+		} };
+
+		const auto fullURL{ make_string(getHostAddress() + req.request_uri().to_string()) };
 		const auto method{ make_string(req.method()) };
 		tracer = onesdk_incomingwebrequesttracer_create(
 			web_application_info_handle, onesdk_asciistr(fullURL.c_str()), onesdk_asciistr(method.c_str()));
@@ -140,7 +144,6 @@ static http_response requestHandler(const http_request& req) {
 		const auto [blockX, blockY, meshSize, steps]{ parseParams(req.request_uri().query()) };
 
 		spdlog::debug("Computing result...");
-		//TODO: set precision 2, fixed point
 		spdlog::debug("GPU global memory allocation size: {} MB", 2.f * meshSize * meshSize * sizeof(float) / 1'000'000);
 		const auto result{ cuda_heat_compute(blockX, blockY, meshSize, steps) };
 		if (result.empty()) {
@@ -192,6 +195,7 @@ bool initLogger() try {
 
 	const auto logger{ std::make_shared<spdlog::logger>("log", spdlog::sinks_init_list({ console_stdout_sink, file_sink })) };
 	logger->set_level(spdlog::level::debug);
+	logger->flush_on(spdlog::level::debug);
 	spdlog::set_default_logger(logger);
 
 	spdlog::info("Logger initialized");
