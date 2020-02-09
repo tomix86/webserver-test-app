@@ -50,7 +50,7 @@ std::vector<std::vector<float>> cuda_heat_compute(int blockDimX, int blockDimY, 
 	meshSize += 2; // add edge rows/cols resembling environment temperature
 
 	size_t pitch;
-	float* temperature = allocMeshLinear(pitch, meshSize);
+	const auto temperature = allocMeshLinear(pitch, meshSize);
 	size_t d_pitch;
 	float *d_temperature_in, *d_temperature_out;
 
@@ -65,7 +65,7 @@ std::vector<std::vector<float>> cuda_heat_compute(int blockDimX, int blockDimY, 
 		dim3 gridSize(computedGridDimX, computedGridDimY);
 
 		checkCudaErrors(
-			cudaMemcpy2D(d_temperature_in, d_pitch, temperature, pitch, meshSize * sizeof(float), meshSize, cudaMemcpyHostToDevice));
+			cudaMemcpy2D(d_temperature_in, d_pitch, temperature.get(), pitch, meshSize * sizeof(float), meshSize, cudaMemcpyHostToDevice));
 		checkCudaErrors(cudaMemcpy2D(
 			d_temperature_out, d_pitch, d_temperature_in, d_pitch, meshSize * sizeof(float), meshSize, cudaMemcpyDeviceToDevice));
 
@@ -78,7 +78,7 @@ std::vector<std::vector<float>> cuda_heat_compute(int blockDimX, int blockDimY, 
 		}
 
 		checkCudaErrors(
-			cudaMemcpy2D(temperature, pitch, d_temperature_in, d_pitch, meshSize * sizeof(float), meshSize, cudaMemcpyDeviceToHost));
+			cudaMemcpy2D(temperature.get(), pitch, d_temperature_in, d_pitch, meshSize * sizeof(float), meshSize, cudaMemcpyDeviceToHost));
 	}
 
 	SimpleTimer t("Computation results processing", true);
@@ -86,14 +86,12 @@ std::vector<std::vector<float>> cuda_heat_compute(int blockDimX, int blockDimY, 
 	for (int y = 1; y < meshSize - 1; ++y) {
 		result.emplace_back();
 		for (int x = 1; x < meshSize - 1; ++x) {
-			result.back().emplace_back(*getElem(temperature, pitch, x, y));
+			result.back().emplace_back(*getElem(temperature.get(), pitch, x, y));
 		}
 	}
 
-	if (!validateResults(temperature, pitch)) { return {}; }
+	if (!validateResults(temperature.get(), pitch)) { return {}; }
 
-	//TODO: RAII guard to avoid resource leaks
-	delete[] temperature;
 	checkCudaErrors(cudaFree(d_temperature_in));
 	checkCudaErrors(cudaFree(d_temperature_out));
 

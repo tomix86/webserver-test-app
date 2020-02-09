@@ -19,29 +19,22 @@ void setValidateResults(bool value) {
 	VALIDATE_RESULTS = value;
 }
 
-float* allocMeshLinear(size_t& pitch, size_t size) {
+std::unique_ptr<float[]> allocMeshLinear(size_t& pitch, size_t size) {
 	pitch = size * sizeof(float);
-	float* output;
+	auto output = std::make_unique<float[]>(size * size);
 
-	try {
-		output = new float[size * size];
-
-		// Set temperature for guardian fields
-		for (int i = 0; i < size; ++i) {
-			for (int j = 0; j < size; ++j) {
-				if (i == 0 || i == size - 1 || j == 0 || j == size - 1) {
-					*getElem(output, pitch, i, j) = Mesh::ENVIRONMENT_TEMP;
-				} else {
-					*getElem(output, pitch, i, j) = Mesh::INITIAL_TEMP;
-				}
+	// Set temperature for guardian fields
+	for (int i = 0; i < size; ++i) {
+		for (int j = 0; j < size; ++j) {
+			if (i == 0 || i == size - 1 || j == 0 || j == size - 1) {
+				*getElem(output.get(), pitch, i, j) = Mesh::ENVIRONMENT_TEMP;
+			} else {
+				*getElem(output.get(), pitch, i, j) = Mesh::INITIAL_TEMP;
 			}
 		}
-
-		return output;
-	} catch (std::exception ex) {
-		spdlog::error(ex.what());
-		exit(-1);
 	}
+
+	return output;
 }
 
 bool validateResults(float* input, size_t pitch) {

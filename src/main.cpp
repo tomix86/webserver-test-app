@@ -159,7 +159,7 @@ static http_response requestHandler(const http_request& req) {
 		return response;
 	} catch (const std::invalid_argument& err) {
 		return errorWrapper(tracer, status_codes::BadRequest, "Invalid request", err.what());
-	} catch (const std::runtime_error& err) {
+	} catch (const std::exception& err) {
 		return errorWrapper(tracer, status_codes::InternalError, "Error processing request", err.what());
 	}
 }

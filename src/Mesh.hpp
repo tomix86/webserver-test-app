@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <memory>
 
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
@@ -29,6 +30,6 @@ template <typename T> __host__ __device__ inline T* getElem(T* BaseAddress, size
 	return reinterpret_cast<T*>(reinterpret_cast<char*>(BaseAddress) + Row * pitch) + Column;
 }
 
-float* allocMeshLinear(size_t& pitch, size_t size);
+std::unique_ptr<float[]> allocMeshLinear(size_t& pitch, size_t size);
 bool validateResults(float* input, size_t pitch);
 void setValidateResults(bool value);
