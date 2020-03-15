@@ -1,8 +1,8 @@
-# GPU Plugin Test Application
+# GPU Webserver Test Application
 
 ## What is it
 
-A C++ applicaton simulating heat distiribution in a 2D body. It acts as a simple webserver responding to queries with image depicting computed result.
+A C++ application simulating heat distribution in a 2D body. It acts as a simple webserver responding to queries with image depicting computed result.
 
 ## External dependencies
 
